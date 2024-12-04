@@ -12,8 +12,6 @@ import math
 import scipy.constants as const
 import scipy
 from scipy.io import wavfile
-from scipy import signal
-from scipy.io.wavfile import write
 from IPython.core.display import HTML
 import soundfile as sf
 #Is this helpful?
