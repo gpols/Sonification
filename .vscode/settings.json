@@ -1,3 +1,9 @@
 {
+<<<<<<< HEAD
     "git.ignoreLimitWarning": true
+=======
+    "python.analysis.extraPaths": [
+        "./functions"
+    ]
+>>>>>>> ba7a83a998a4a8b87bfe4bcc1e2627ec7445ccd5
 }
