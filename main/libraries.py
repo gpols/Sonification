@@ -11,11 +11,15 @@ from matplotlib.ticker import FuncFormatter
 import math
 import scipy.constants as const
 import scipy
+from scipy.signal import resample, fftconvolve
+from scipy.signal import fftconvolve
 from scipy.io import wavfile
+import seaborn as sns
 from IPython.core.display import HTML
 import soundfile as sf
 #Is this helpful?
 from numpy import sin, pi, arange, array
+from scipy.signal import resample
 import struct
 import warnings
 ## Py 3

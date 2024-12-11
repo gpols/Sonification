@@ -14,3 +14,7 @@ data_files/
 # Ignore system files
 .DS_Store
 Thumbs.db
+
+# Ignore visual studio code files
+.vscode/
+
