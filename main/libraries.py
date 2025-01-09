@@ -5,6 +5,9 @@ from __future__ import division, print_function, absolute_import
 import xarray as xr
 import pandas as pd
 import numpy as np
+import librosa as lr
+from librosa import ParameterError
+import os
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 from matplotlib.ticker import FuncFormatter
