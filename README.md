@@ -1,4 +1,4 @@
-Future Sounds
+## Future Sounds
 
 ## Overview
 Future Sounds is a project that aims to revolutionize the way we experience music by leveraging cutting-edge technology to create immersive soundscapes.
@@ -30,6 +30,3 @@ Future Sounds is a project that aims to revolutionize the way we experience musi
 
 ## License
 This project is licensed under the MIT License. See the `LICENSE` file for more details.
-
-
-
