@@ -1,7 +1,7 @@
 ## Future Sounds
 
 ## Overview
-Future Sounds is a project that aims to revolutionize the way we experience music by leveraging cutting-edge technology to create immersive soundscapes.
+Future Sounds is a project that creates sounds (Sonification) of climate data.
 
 ## Prerequisites
 - Python 3.8 or higher
