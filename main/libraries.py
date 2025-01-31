@@ -6,7 +6,6 @@ import scipy.constants as const
 import scipy
 from scipy.signal import butter, filtfilt, resample, lfilter
 
-import xarray as xr
 import pandas as pd
 import seaborn as sns
 
