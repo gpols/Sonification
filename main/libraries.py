@@ -3,8 +3,12 @@
 #import helpful stuff:
 from __future__ import division, print_function, absolute_import
 import scipy.constants as const
-import scipy
+import scipy as sp
 from scipy.signal import butter, filtfilt, resample, lfilter
+import random
+
+import audiomentations as ad
+from audiomentations import ApplyImpulseResponse, Compose, Gain, PitchShift, TimeStretch, AddGaussianNoise, AddGaussianSNR, AddBackgroundNoise, AddShortNoises,AddBackgroundNoise, BandPassFilter, TanhDistortion, Reverse, HighPassFilter, LowPassFilter, BandStopFilter
 
 import pandas as pd
 import seaborn as sns
