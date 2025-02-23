@@ -2,44 +2,15 @@
 s.boot;
 
 (
-// Read data from a CSV file into an array
 ~data = CSVFileReader.read("/Users/polia/Documents/final_project/data_pred.csv", true, true, startRow: 1);
-
-// Flatten the data and convert each element to a float
 ~data = ~data.flatten.collect(_.asFloat);
-
-// Print the processed data to the console
 ~data.postln;
 )
 
-// ======================
-// Buffer Operations
-// ======================
-// Store the data in a buffer
-~buffer = Buffer.loadCollection(s, ~data, 3);
-
-~buffer.free;
-
-// ======================
-// Synth Definition
-// ======================
-(
-SynthDef(\hum, { |out = 0, bufnum, channel = 0, rate = 1, amp = 0.1, pan = 0, gate = 1 |
-    var index, sig, env;
-
-    // Create an index for reading from the buffer (moving through it over time)
-    index = Phasor.ar(0, BufRateScale.kr(bufnum) * rate, 0, BufFrames.kr(bufnum));
-
-    // Read from the specific channel in the buffer
-    sig = BufRd.ar(1, bufnum, index, interpolation: 4);
-
-    // Apply an envelope
-    env = Linen.kr(gate, doneAction: Done.freeSelf);
-
-    // Pan and output the sound
-    OffsetOut.ar(out, Pan2.ar(sig, pan, env * amp));
-}).add;
-)
+// checking
+// if the duration 1 second per value data
+~totalDuration = (~data.size * 1) / 60;
+~data.size
 
 // ======================
 // Reverb Effect
@@ -59,38 +30,86 @@ SynthDef(\reverb, {
     Out.ar(\out.ir(0), sig);
 }).add;
 
-~reverbBus = Bus.audio(s, 2);  // Create a stereo audio bus
-
+~reverbBus = Bus.audio(s, 2);
 // Start the reverb effect
 ~reverbSynth = Synth(\reverb, [\in, ~reverbBus]);
 )
 
 // ======================
-// Start Synths with Data Integration
+// Synth Definitions
 // ======================
-
-// Normalize the data for amplitude control
-~ampData = ~data.linlin(~data.minItem, ~data.maxItem, 0.1, 1);
 (
-~humPattern = Pbind(
-    \instrument, \hum,
-    \bufnum, ~buffer,
-    \channel, Pseq([0], inf),  // Ensure correct buffer channel usage
-    \rate, Pwhite(0.5, 1.5, inf),  // Randomized rate
-    \amp, Pseq(~ampData, inf),
-    \dur, 0.1
-).play;
+SynthDef(\hum, { |out = 0, freq = 50, amp = 0.1, pan = 0, gate = 1, verbmix = 0.3 |
+    var audio, env, dry, wet;
+
+    audio = Blip.ar(freq, amp);  // Sound generator
+    env = Linen.kr(gate, doneAction: Done.freeSelf);
+
+    dry = Pan2.ar(audio * env, pan);   // Dry signal (goes to speakers)
+    wet = dry * verbmix;               // Wet signal (sent to reverb)
+
+    Out.ar(out, dry);              // Direct output (dry signal)
+    Out.ar(~reverbBus, wet);   // Send to reverb bus (wet signal)
+}).add;
 )
 
-// Start and stop the pattern player
-~humPattern.start;
-~humPattern.stop;
+(
+SynthDef(\crackle, { |out = 0, pan = 0, gate = 1|
+    var sig, freq, amp, pan, env, burst;
+
+    // Random burst-like crackle events
+    burst = Dust.kr(5); // Controls how often crackles occur
+
+    // Generate random frequency & amplitude for each burst
+    freq = TRand.kr(200, 3000, burst); // Fire crackles have a higher freq range
+    amp = TRand.kr(0.3, 1.0, burst); // Randomized amplitude for dynamics
+    pan = TRand.kr(-1.0, 1.0, burst);
+
+    // Generate a short burst of noise for the crackle sound
+    sig = WhiteNoise.ar(amp);
+    sig = BPF.ar(sig, freq, 0.2); // Band-pass filtering for sharpness
+
+    // Apply envelope (short percussive burst)
+    env = EnvGen.kr(Env.perc(0.001, TRand.kr(0.01, 0.05, burst)), burst, doneAction: Done.freeSelf);
+
+    sig = Pan2.ar(sig * env, pan);
+
+    Out.ar(out, sig);
+}).add;
+)
+
+
+
 
 // ======================
-// Data Buffer Information
+// Play sounds as pattern
 // ======================
-~data[224];  // Access a specific data point
-~data.size;  // Check the total size of data
-~buffer.numChannels;  // Number of channels in the buffer
-~buffer.bufnum;  // Buffer ID
-~buffer.sampleRate;  // Sample rate of the buffer
+
+(
+~humSound = Pbind(
+    \instrument, \hum,
+	\degree, Pseq(~data, inf),
+    \freq, Pwhite(50, 80, inf), // Harmonic frequencies
+	\amp, Pseq(~data.linlin(0, 1, 0.05, 0.1), inf),
+    \dur, 1.0,        // One second per value
+    \verbmix, 1.0
+).trace.play;
+)
+
+~humSound.start;
+~humSound.stop;
+~humSound.free;
+
+(
+~crackleSound = Pbind(
+    \instrument, \crackle,
+    \dur, 1.0
+).trace.play;
+)
+
+~crackleSound.start;
+~crackleSound.stop;
+~crackleSound.free;
+
+
+
