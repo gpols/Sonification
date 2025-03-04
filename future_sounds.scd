@@ -1,115 +1,186 @@
-// Boot the SuperCollider server
 s.boot;
+s.sampleRate;
 
-(
-~data = CSVFileReader.read("/Users/polia/Documents/final_project/data_pred.csv", true, true, startRow: 1);
-~data = ~data.flatten.collect(_.asFloat);
-~data.postln;
-)
+~tdata = CSVFileReader.read("/Users/polia/Documents/final_project/main/temperature_values.csv", true, true, startRow:1);
+~tdata = ~tdata.flatten.collect(_.asFloat);
+~tdata.size;
 
-// checking
-// if the duration 1 second per value data
-~totalDuration = (~data.size * 1) / 60;
-~data.size
+~tempData = Buffer.sendCollection(s, ~tdata.flatten.normalize);
+~tempData.query;
+~tempData.free;
 
-// ======================
-// Reverb Effect
-// ======================
-(
-SynthDef(\reverb, {
-    var sig, wet, dec = \dec.kr(1);
-    sig = In.ar(\in.ir(0), 2);  // Input from bus
-    wet = DelayN.ar(sig, 0.1, \predel.kr(0.02));
-    wet = Mix.fill(6, {
-        CombC.ar(wet, 0.1, LFNoise1.kr(0.02!2).exprange(0.02,0.1), dec);
-    });
-    6.do {
-        wet = AllpassC.ar(wet, 0.02, LFNoise1.kr(0.02!2).exprange(0.01,0.02), dec);
-    };
-    sig = sig.blend(wet, \mix.kr(0.3)) * \amp.kr(0.5);
-    Out.ar(\out.ir(0), sig);
-}).add;
 
-~reverbBus = Bus.audio(s, 2);
-// Start the reverb effect
-~reverbSynth = Synth(\reverb, [\in, ~reverbBus]);
-)
 
 // ======================
-// Synth Definitions
+// Buzzing/Hum sound
 // ======================
-(
-SynthDef(\hum, { |out = 0, freq = 50, amp = 0.1, pan = 0, gate = 1, verbmix = 0.3 |
-    var audio, env, dry, wet;
-
-    audio = Blip.ar(freq, amp);  // Sound generator
-    env = Linen.kr(gate, doneAction: Done.freeSelf);
-
-    dry = Pan2.ar(audio * env, pan);   // Dry signal (goes to speakers)
-    wet = dry * verbmix;               // Wet signal (sent to reverb)
-
-    Out.ar(out, dry);              // Direct output (dry signal)
-    Out.ar(~reverbBus, wet);   // Send to reverb bus (wet signal)
-}).add;
-)
 
 (
-SynthDef(\crackle, { |out = 0, pan = 0, gate = 1|
-    var sig, freq, amp, pan, env, burst;
+SynthDef('hum', {|out, freq=50, rate=1, bufnum, amp=1, gate=1, pan, attack=1.0, release=1.0, sustain=3.0,
+    modDepth=10, trigger=0, loop, start, mix=0.5, room=0.9, damp=0.3|
 
-    // Random burst-like crackle events
-    burst = Dust.kr(5); // Controls how often crackles occur
+    var sig;
+	var env;
+	var startPos;
+	var lowOsc;
+	var humSig;
+	var wet;
+	var dry;
 
-    // Generate random frequency & amplitude for each burst
-    freq = TRand.kr(200, 3000, burst); // Fire crackles have a higher freq range
-    amp = TRand.kr(0.3, 1.0, burst); // Randomized amplitude for dynamics
-    pan = TRand.kr(-1.0, 1.0, burst);
+    rate = rate * BufRateScale.kr(bufnum);
+    startPos = start * BufFrames.kr(bufnum);
 
-    // Generate a short burst of noise for the crackle sound
-    sig = WhiteNoise.ar(amp);
-    sig = BPF.ar(sig, freq, 0.2); // Band-pass filtering for sharpness
+    humSig = PlayBuf.ar(1, bufnum, rate:rate, trigger:trigger, startPos:startPos, loop:loop, doneAction: Done.freeSelf);
 
-    // Apply envelope (short percussive burst)
-    env = EnvGen.kr(Env.perc(0.001, TRand.kr(0.01, 0.05, burst)), burst, doneAction: Done.freeSelf);
+    // Saw signal for rich sound
+    lowOsc = LFSaw.ar(freq * 0.5 + (humSig * modDepth));
+	//Low pass filter
+    lowOsc = LPF.ar(lowOsc, freq * 2);
 
-    sig = Pan2.ar(sig * env, pan);
+    // Sharp sine wave on top
+	// mul: output will be multiply by the value. Use to control volume
+    sig = SinOsc.ar(freq + (humSig * modDepth), mul: 0.2);
 
+    // Blend both signals
+    sig = lowOsc * sig;
+
+    // Add Reverb for depth
+    sig = FreeVerb.ar(sig, mix: mix, room: room, damp: damp);
+
+    // Envelope
+    env = EnvGen.kr(Env.asr(attack, sustain, release), gate, doneAction: Done.freeSelf);
+    sig = sig * env * amp;
+
+    // Stereo Panning
+    sig = Pan2.ar(sig, pan);
     Out.ar(out, sig);
 }).add;
 )
 
+(
+Ndef(\humSound).quant_(1).play;
+Ndef(\humSound,
+    Pbind(*[
+        instrument: 'hum',
+        bufnum: ~tempData,
+        dur: 2,
+        loop: 1,
+        sustain: 2,
+        freq: Pseg(Pseq([10, 80], inf), ~tempData.numFrames),
+        modDepth: Pseg(Pseq([5, 30], inf), ~tempData.numFrames),
+        pan: Pwhite(-0.3, 0.3),
+        legato: 0.9,
+    ]).trace;
+);
+)
 
+Ndef(\humSound).clear;
 
 
 // ======================
-// Play sounds as pattern
+// Rain sound
 // ======================
 
 (
-~humSound = Pbind(
-    \instrument, \hum,
-	\degree, Pseq(~data, inf),
-    \freq, Pwhite(50, 80, inf), // Harmonic frequencies
-	\amp, Pseq(~data.linlin(0, 1, 0.05, 0.1), inf),
-    \dur, 1.0,        // One second per value
-    \verbmix, 1.0
-).trace.play;
+SynthDef('rain', {|out, freq=200, rate=1, bufnum, amp=0.5, gate=1, attack=0.001, release=0.05, lowFreq=200, cracklesNum=50, start=0, pan=0, trigger=1, loop=1|
+
+    var sig, env, burst, rainSig, startPos;
+
+    rate = rate * BufRateScale.kr(bufnum);
+    startPos = start * BufFrames.kr(bufnum);
+
+    rainSig = PlayBuf.ar(1, bufnum, rate:rate, trigger:trigger, startPos:startPos, loop:loop, doneAction: Done.freeSelf);
+
+    burst = Dust.kr(cracklesNum);
+	sig = WhiteNoise.ar(amp);
+	freq = LinExp.ar(sig * 0.5 + 0.5, 0, 1, 10, 1000);
+
+    env = EnvGen.kr(Env.perc(attack, release), burst);
+
+	sig = LPF.ar(sig, lowFreq);
+	sig = sig * env;
+    sig = Pan2.ar(sig, pan);
+
+    Out.ar(out, sig);
+
+}).add;
 )
 
-~humSound.start;
-~humSound.stop;
-~humSound.free;
 
 (
-~crackleSound = Pbind(
-    \instrument, \crackle,
-    \dur, 1.0
-).trace.play;
+Ndef(\rainSound).quant_(1).play;
+Ndef(\rainSound,
+    Pbind(*[
+        instrument: 'rain',
+        bufnum: ~tempData,
+        dur: 1,
+        loop: 1,
+		cracklesNum: Pseg([10, 200], 60, 'exp').repeat,
+    ]).trace;
+);
 )
 
-~crackleSound.start;
-~crackleSound.stop;
-~crackleSound.free;
+Ndef(\rainSound).clear;
+
+
+// ======================
+// Wind sound
+// ======================
+
+(
+SynthDef('hiss', {|out, rate=1, bufnum, amp=1, gate=1, pan, trigger=0, dur=10, loop, start, attack=0.3, sustain=1.0, release=3.0, startValue=500, endValue=800|
+
+	    var sig;
+        var env;
+        var startPos;
+	    var noise;
+	    var freq;
+	    var hissSig;
+
+        rate = rate * BufRateScale.kr(bufnum);
+        startPos = start * BufFrames.kr(bufnum);
+
+        hissSig = PlayBuf.ar(1, bufnum, rate:rate, trigger:trigger, startPos:startPos, loop:loop, doneAction: Done.freeSelf);
+
+        noise = PinkNoise.ar(amp);
+
+        freq = XLine.kr(startValue, endValue, dur);
+
+        sig = RHPF.ar(noise, freq, 0.3);
+        sig = RLPF.ar(sig, freq, 0.2);
+
+	    sig * hissSig;
+
+        sig = sig.tanh;
+
+        env = EnvGen.kr(Env.asr(attack, sustain, release, curve: 'linear'), gate, doneAction: Done.freeSelf);
+
+    // Mono to stereo.
+    sig = Pan2.ar(sig, pan);
+    Out.ar(out, sig);
+
+}).add;
+)
+
+
+(
+Ndef(\hissSound).quant_(1).play;
+Ndef(\hissSound,
+    Pbind(*[
+        instrument: 'hiss',
+        bufnum: ~tempData,
+        dur: 1,
+        loop: 1,
+		// degree: Pseq(~tempData, inf),
+		// amp: Pfunc { |ev| if (ev[\degree] > 11) { 1.0 } {Rest(1)}}
+    ]).trace;
+);
+)
+
+Ndef(\hissSound).clear;
+
+// ===================================================================================================
+
 
 
 
