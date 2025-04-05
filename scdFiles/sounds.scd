@@ -9,31 +9,37 @@ s.boot;
 
 (
 ~temp = PathName(Document.current.dir);
-~tempData = CSVFileReader.read((~temp +/+ "data_files/temperature.csv").fullPath, true, true);
+~tempData = CSVFileReader.read((~temp +/+ "temperature_values.csv").fullPath, true, true);
 ~tempData = ~tempData.flatten.collect(_.asFloat);
 )
 
 (
 ~wind = PathName(Document.current.dir);
-~windData = CSVFileReader.read((~wind +/+ "data_files/wind.csv").fullPath, true, true);
+~windData = CSVFileReader.read((~wind +/+ "main/wind_values.csv").fullPath, true, true);
 ~windData = ~windData.flatten.collect(_.asFloat);
 )
 
 (
 ~rain = PathName(Document.current.dir);
-~rainData = CSVFileReader.read((~rain +/+ "data_files/rain.csv").fullPath, true, true);
+~rainData = CSVFileReader.read((~rain +/+ "main/rain_values.csv").fullPath, true, true);
 ~rainData = ~rainData.flatten.collect(_.asFloat);
 )
 
 
 ~tempBuff = Buffer.sendCollection(s, ~tempData, 3);
 ~tempBuff.query;
+~tempBuff.plot;
 
 ~windBuff = Buffer.sendCollection(s, ~windData);
 ~windBuff.query;
+~windBuff.plot;
 
 ~rainBuff = Buffer.sendCollection(s, ~rainData);
 ~rainBuff.query;
+~rainBuff.plot;
+
+
+
 
 
 (
@@ -55,10 +61,8 @@ s.boot;
 		env = EnvGen.kr(Env.asr(attack, 1, release), gate, doneAction: Done.freeSelf);
 		sig = env *sig;
 
-
-        //sig = Pan2.ar(sig, pan) * amp;
 		sig = Splay.ar(sig, center:pan);
-		sig.postln;
+		// sig.postln;
 
         Out.ar(out, sig);
     }).add;
@@ -71,7 +75,7 @@ s.boot;
 (
 [1].do{|numChannels|
 "Create sample player, numChannels=%".format(numChannels).postln;
-    SynthDef('rain' ++ numChannels, { |out=0, amp=0.4, gate=1, pan=0, rate=1, loop, trigger, bufnum, start, highFreq=4000, lowFreq=1000|
+    SynthDef('rain' ++ numChannels, { |out=0, amp=0.4, gate=1, pan=0, rate=1, loop, trigger, bufnum, start, highFreq=4000, lowFreq=1000, fadeIn, fadeOut|
 
     var env, sig, rain, startPos;
 
@@ -102,10 +106,10 @@ SynthDef(\metal, { |out=0, freq = 200, decay = 2, amp = 0.5, pan = 0|
         SinOsc.ar(freq * (1 + (i * 0.01)), 0, amp / 5)
     });
     sig = sig * LFTri.ar(freq * 1.5);
-    env = EnvGen.kr(Env.perc(0.01, decay, amp), doneAction: 2);
+    env = EnvGen.kr(Env.perc(0.01, decay, amp), doneAction: Done.freeSelf);
     sig = GVerb.ar(sig, roomsize: 10, revtime: 3) * 0.3;
 
-    Out.ar(0, Pan2.ar(sig * env, pan));
+    Out.ar(out, Pan2.ar(sig * env, pan));
 }).add;
 "Metal Synth created!";
 )
@@ -119,7 +123,7 @@ SynthDef(\fire, { |out=0, amp=0.5, pan=0, crackles=30|
 
     trig = Dust.kr(crackles);
     freq = ExpRand(400, 1200);
-    env = EnvGen.kr(Env.perc(0.001, ExpRand(0.001, 0.005), ExpRand(0.03, 0.08)), trig);
+    env = EnvGen.kr(Env.perc(0.001, ExpRand(0.001, 0.005), ExpRand(0.03, 0.08)), trig, doneAction: Done.freeSelf);
     crackle = SinOsc.ar(freq, 0, env);
     sig = crackle * amp;
     sig = Pan2.ar(sig, pan);
@@ -142,17 +146,15 @@ SynthDescLib.global.browse;
     \freq, Pseq([18, 19, 20, 21, 22], inf),
     \amp, Pseq([0.2, 0, 0.5, 0.8, 0, 0.2, 0, 1], inf),
     \modDepth, Pbrown(0, 10, 0.5, inf),
-/*	\attack, 0.01,
-	\release, 1,*/
     \legato, 10,
     \attack, 0.1,
     \release, 4,
     \pan, Pwhite(-0.5, 0.5, inf),
-).play;
-)
+	);//.trace.play;
+//);
 
 // sharper, eerie
-(
+//(
 ~hum2 = Pbind(
     \instrument, \hum3,
     \bufnum, ~tempBuff,
@@ -165,12 +167,12 @@ SynthDescLib.global.browse;
     \legato, Pwhite(0.5, 2, inf), // short and long tones
     \pan, Pbrown(-1.0, 1.0, 0.2, inf), // 0.2 of the previous one
     \mix, Pwhite(0.5, 0.8, inf),// reverb
-).trace.play;
-)
+);//.trace.play;
+//);
 
-s.scope;
+//s.scope;
 // intense with strong reverb
-(
+//(
 ~hum3 = Pbind(
     \instrument, \hum3,
     \bufnum, ~tempBuff,
@@ -182,7 +184,9 @@ s.scope;
     \legato, Pseq([1, 2, 3, 1.5, 1], inf), // time overlap
     \pan, Pseq([-0.8, -0.4, 0, 0.4, 0.8], inf),// plays inthe order in loop
     \mix, Pwhite(0.6, 0.9, inf), // reverb
-).trace.play;
+//)//.trace.play;
+);
+
 )
 
 // heavy rain
@@ -190,16 +194,20 @@ s.scope;
 ~rain = Pbind(
     \instrument, \rain1,
     \bufnum, ~rainBuff,
-    \amp, Pwhite(0.5, 0.8, inf),
+    \amp, Pwhite(0.2, 0.4, inf),
     \dur, Pseq([2.0, 3.0, 4.0], inf),
     \loop, 1,
-    \trigger, Pseq([0, 0.5, 1, 1.5, 0.2, 0.8, 1.3], inf),
     \start, Pwhite(0.4, 0.8, inf),
     \highFreq, Pwhite(1500, 3000, inf),
     \lowFreq, Pwhite(300, 700, inf),
+	\trigger, Pfunc { |ev| if (ev[\highFreq] > 2500) { 1 } { Rest(1) } },
     \pan, Pbrown(-0.3, 0.3, 0.02, inf),
-).trace.play;
+	\fadeIn, 2,
+	\fadeOut, 2,
 
+// ).trace.play;
+
+);
 )
 
 (
@@ -213,9 +221,9 @@ s.scope;
     \pan, Pwhite(-0.5, 0.5, inf),
     \dur, Pwhite(4.0, 8.0, inf),
     \trigger, Pfunc { |ev| if (ev[\freq] > 300) { 1 } { Rest(1) } }
-).trace.play;
+// ).trace.play;
+);
 )
-
 
 (
 ~fire = Pbind(
@@ -225,27 +233,38 @@ s.scope;
     \pan, Pwhite(-0.5, 0.5, inf),
     \dur, Pwhite(0.05, 0.2, inf),
     \crackles, Pfunc { |ev| if (ev[\degree] > 12) { 1.0 } {Rest(1)} }
-).trace.play;
+// ).trace.play;
+);
 )
 
-~fire.value
-(
 
+
+(
 var clock;
 clock = TempoClock.default;
 
 Routine({
-
+    // Start the patterns
     ~hum1.play(clock);
     ~hum2.play(clock);
     ~hum3.play(clock);
     ~fire.play(clock);
-    ~metal.play(clock);
-    8.wait;
+
+    10.wait;
 
     ~rain.play(clock);
+    ~metal.play(clock);
 
-    inf.wait;
+
+    60.wait;
+
+        ~hum1.stop;
+        ~hum2.stop;
+        ~hum3.stop;
+        ~fire.stop;
+        ~rain.stop;
+        ~metal.stop;
+
 }).play(clock);
 )
 
