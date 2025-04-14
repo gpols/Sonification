@@ -6,46 +6,47 @@
 ~atmosBuff = Buffer.read(s, ~filePath);
 
 
-(
-SynthDef(\birds, {|out=0, bufnum, pan=0, loop=0, rate=1, start=0|
 
-    var sig;
-	var startPos;
+SynthDef(\birdsFx, { |out=0, bufnum, pan=0, amp=0.4|
+    var sig, startPos, rate, dist, crushed, filtered, downsampleRate, crushTrig;
 
-	// Calculate buffer playback rate and start position
-    rate = rate * BufRateScale.kr(bufnum);
-    startPos = start * BufFrames.kr(bufnum);
-    sig = PlayBuf.ar(2, bufnum, rate:rate, startPos:startPos, loop:loop, doneAction: Done.freeSelf);
+    // Reverse playback from the middle of the buffer
+    rate = -1 * BufRateScale.kr(bufnum);
+    startPos = BufFrames.kr(bufnum) / 2;
 
-	        // Compile-time channel adaptation
-        case
-        {sig.isArray.not} {
-            "Mono to stereo".postln;
-            sig = Pan2.ar(sig, pan);
-        }
-        {sig.size == 2} {
-            "Stereo balance".postln;
-            sig = Balance2.ar(sig[0], sig[1], pan);
-        }
-        {sig.size > 2} {
-            "Spread 12 channels".postln;
-            sig = Splay.ar(sig).dup(12);
-        };
+    sig = PlayBuf.ar(2, bufnum, rate: rate, startPos: startPos, loop: 0, doneAction: Done.freeSelf);
+
+    // HEAVY DISTORTION
+    dist = tanh(sig * 15);  // waveshaping distortion
+
+    // Fake bitcrushing (manual downsampling)
+    downsampleRate = 2000;  // lower = crunchier
+    crushTrig = Impulse.ar(downsampleRate);
+    crushed = Latch.ar(dist, crushTrig);  // hold signal at sample rate
+
+    // Filter sweeps to simulate approach
+    filtered = RLPF.ar(crushed, Line.kr(800, 4000, 12), 0.4);
+
+    // Reverb
+    sig = FreeVerb.ar(filtered, mix: 0.4, room: 0.7);
+
+    // Spatialize and amp
+    sig = Balance2.ar(sig[0], sig[1], pan) * amp;
 
     Out.ar(out, sig);
 }).add;
 
- "Birds Synth created!".postln;
-)
 
-// Play it
-// Start halfway through the file
-// x = Synth(\birds, [\bufnum, ~atmosBuff, \start, 0.5]);
 
-// Start at 25% and pan left
-// y = Synth(\birds, [\bufnum, ~atmosBuff, \start, 0.25, \pan, -0.7]);
+~atmosBird = Synth(\birdsFx, [
+    \bufnum, ~atmosBuff,
+    \start, 0.0,
+    \amp, 0.4,  // starting amp
+    \pan, 0.0
+]);
 
-z = Synth(\birds, [\bufnum, ~atmosBuff, \start, 0.8, \rate, -1]);
+
+
 
 
 

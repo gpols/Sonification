@@ -21,62 +21,29 @@
 ~hum_env.init.value;
 // ~tempData.plot;
 
-// Bus for volume contol
-~humBus = Bus.audio(s, 2);
-
 // Create SynthDefs inside a function
 ~hum_env.func = {
 
-	// route audio from bus to speakers with amp control
-    SynthDef(\humVolume, { |in=0, out=0, amp=0.3|
-        var sig = In.ar(in, 2);
-        Out.ar(out, sig * amp);
-
-	}).add;
-
-    // HUM SYNTHDEF
     SynthDef(\hum, { |out, freq=50, gate=1, attack=1, release=1, rate=1, bufnum, amp=1, pan=0, modDepth=5, loop, trigger, start, room=0.8, mix=0.3, damp=0.2|
-        var sig, humSig, lowOsc, startPos, env;
+    var sig, humSig, lowOsc, startPos, env;
 
-        // Calculate playback rate and start position in buffer
-        rate = rate * BufRateScale.kr(bufnum);
-        startPos = start * BufFrames.kr(bufnum);
+    rate = rate * BufRateScale.kr(bufnum);
+    startPos = start * BufFrames.kr(bufnum);
+    humSig = PlayBuf.ar(1, bufnum, rate: rate, trigger: trigger, startPos: startPos, loop: loop);
 
-        // Play buffer
-        humSig = PlayBuf.ar(1, bufnum, rate: rate, trigger: trigger, startPos: startPos, loop: loop);
+    lowOsc = LFSaw.ar(freq * 0.5 + (humSig * modDepth)).clip(-0.5, 0.5);
+    lowOsc = LPF.ar(lowOsc, freq * 2);
 
-        // Modulate a low-frequency saw wave with buffer data
-        lowOsc = LFSaw.ar(freq * 0.5 + (humSig * modDepth)).clip(-0.5, 0.5);
-        lowOsc = LPF.ar(lowOsc, freq * 2);
+    sig = SinOsc.ar(freq + (humSig * modDepth)) * lowOsc;
 
-        // Multiply sine wave by modulated saw wave
-        sig = SinOsc.ar(freq + (humSig * modDepth), mul: 0.3) * lowOsc;
+    sig = FreeVerb.ar(sig, mix: mix, room: room, damp: damp);
+    env = EnvGen.kr(Env.asr(attack, 1, release), gate, doneAction: Done.freeSelf);
+    sig = env * sig;
 
-        // Add reverb
-        sig = FreeVerb.ar(sig, mix: mix, room: room, damp: damp);
+    sig = PanAz.ar(12, sig, pan, level: amp);
 
-        // Apply amplitude envelope
-        env = EnvGen.kr(Env.asr(attack, 1, release), gate, doneAction: Done.freeSelf);
-        sig = env * sig;
-
-        // Adapt output channels
-        case
-        {sig.isArray.not} {
-            "Mono to stereo".postln;
-            sig = Pan2.ar(sig, pan);
-        }
-        {sig.size == 2} {
-            "Stereo balance".postln;
-            sig = Balance2.ar(sig[0], sig[1], pan);
-        }
-        {sig.size > 2} {
-            "Spread 12 channels".postln;
-            sig = Splay.ar(sig).dup(12);
-        };
-
-        // Send signal to output
-        Out.ar(out, sig);
-    }).add;
+    Out.ar(out, sig);
+}).add;
 
     "Hum Synth created!".postln;
 };
@@ -84,76 +51,31 @@
 
 // Function to create multiple Pbinds (patterns)
 ~hum_env.makePatterns = {
-    Pdef(\hum1,
+    Pdef(\hum,
         Pbind(
             \instrument, \hum,
             \bufnum, ~humBuff,
-            \freq, Pseq([20, 22, 19, 21], inf),
-            \amp, 0.1,
-			\legato, 10,
-			\room,Pseq([0.8, 0.3, 1.0], inf),
-			\release, 5,
-            \pan, Pwhite(-0.7, 0.7, inf),
-			\out, ~humBus,
-        )
-    );
-
-    Pdef(\hum2,
-        Pbind(
-            \instrument, \hum,
-            \bufnum, ~humBuff,
-			\trigger, Pseq([1, 0, 1], inf),
-			\start, Pseq([0.2, 0.6, 1.0], inf),
-            \freq, Pseq([90, 95, 100], inf),
-            \amp, 0.1,
-            \attack, 5,
-            \release, 1,
-            \legato, 6,
-			\mix, Pseq([0.8, 0.3, 1.0], inf),
-            \pan, Pwhite(-0.5, 0.5, inf),
-			\out, ~humBus,
+            \freq, Pseg([20, 25, 31, 40, 50], [50, 50, 50, 50, 50, 50], \exp),
+            \amp, 1.0,
+            \legato, Pseq([10, 0.5, 6], inf),
+            \room, Pseq([1.0, 0.2, 0.9], inf),
+            \release, 2,
+			\pan, Pseg(Pwhite(-1.0, 1.0, inf), Pwhite(4.0, 12.0, inf)),
+            \modDepth, Pseq([15, 2, 10], inf),
         )
     );
 };
 
-~humVolumeSynth = Synth(\humVolume, [\in, ~humBus, \amp, 0.0]);  // Start silent
 
 ~hum_env.playRoutine = {
     Routine({
-        var fadeTime = 180;  // seconds
-        var steps = 60;      // number of steps in fade
-        var waitTime = fadeTime / steps;  // time between steps
-        var startAmp = 0.0;
-        var endAmp = 1.0;
-
-        // Start patterns
-        Pdef(\hum1).play;
-		"hum1 started".postln;
-
-		60.wait;
-
-        Pdef(\hum2).play;
-        "hum2 started".postln;
-
-        // Fade in the humVolume synth
-        steps.do { |i|
-            var ampVal = startAmp + ((endAmp - startAmp) * (i / steps));
-            ~humVolumeSynth.set(\amp, ampVal);
-            waitTime.wait;
-        };
-
-        // Stop all after fade time
-        [\hum1, \hum2].do { |key| Pdef(key).stop; };
-        ~humVolumeSynth.free;
-        "Hums stopped.".postln;
-		60.wait; // fade time
+        Pdef(\hum).play;
+        "hum started".postln;
     }).play;
 };
+
 
 
 ~hum_env.func.value;
 ~hum_env.makePatterns.value;
 ~hum_env.playRoutine.value;
-
-
-// SynthDescLib.global.browse;

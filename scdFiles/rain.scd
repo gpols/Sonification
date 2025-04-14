@@ -23,19 +23,8 @@
 // ~rainData.plot;
 
 
-// Bus for volume contol
-~rainBus = Bus.audio(s, 2);
-
 // SynthDef creation function
 ~rain_env.func = {
-
-	// route audio from bus to speakers with amp control
-	SynthDef(\rainVolume, { |in=0, out=0, amp=0.3|
-        var sig = In.ar(in, 2);
-        Out.ar(out, sig * amp);
-
-	}).add;
-
     // SynthDef: rain
     SynthDef(\rain, { |out=0, amp=0.4, gate=1, pan=0, rate=1, loop, trigger, bufnum, start, highFreq=4000, lowFreq=1000, fadeIn, fadeOut|
 
@@ -53,23 +42,10 @@
 
         // Mix LPF and BPF noise, modulated by env, amp and buffer signal
         sig = Mix([
-            LPF.ar(WhiteNoise.ar(0.3), highFreq),
-            BPF.ar(WhiteNoise.ar(0.2), lowFreq, 0.7)]) * env * amp * rainSig;
+            LPF.ar(WhiteNoise.ar(0.8), highFreq),
+            BPF.ar(WhiteNoise.ar(0.6), lowFreq, 0.7)]) * env * amp * rainSig;
 
-        // Compile-time channel adaptation
-        case
-        {sig.isArray.not} {
-            "Mono to stereo".postln;
-            sig = Pan2.ar(sig, pan);
-        }
-        {sig.size == 2} {
-            "Stereo balance".postln;
-            sig = Balance2.ar(sig[0], sig[1], pan);
-        }
-        {sig.size > 2} {
-            "Spread 12 channels".postln;
-            sig = Splay.ar(sig).dup(12);
-        };
+        sig = PanAz.ar(12, sig, pan, level: amp);
 
         // Output signal
         Out.ar(out, sig);
@@ -82,53 +58,35 @@
 
 // Pattern generation function for rain playback
 ~rain_env.makePbinds = {
+	    var temps = ~rainData.copy;
 	Pdef(\rains,
 		Pbind(
             \instrument, \rain,
             \bufnum, ~rainBuff,
-            \amp, Pwhite(0.2, 0.4, inf),
             \dur, Pseq([2.0, 3.0, 4.0], inf),
             \loop, 1,
-            \start, Pwhite(0.4, 0.8, inf),
-            \highFreq, Pwhite(1500, 3000, inf),
-            \lowFreq, Pwhite(300, 700, inf),
-            // only play if highFreq is above threshold
-			\trigger, Pfunc { |ev| if (ev[\highFreq] > 2500) { 1 } { Rest(1) } },
-            \pan, Pbrown(-0.3, 0.3, 0.02, inf),
+			\trigger, 1,
             \fadeIn, 2,
             \fadeOut, 2,
-			\out, ~rainBus,
+			\pan, Pseg(Pwhite(-1.0, 1.0, inf), Pwhite(4.0, 12.0, inf)),
+			\amp, Pseq(temps.collect { |val|
+                    var ampVal;
+                    ampVal = if (val > 0.1) { 1.0 } { 0.0 };
+
+                    if (ampVal > 0.0) {
+                        ampVal  // Play sound
+                    } {
+                        Rest()  // Silent step
+                    }
+                }, inf)
 	));
 };
 
-
-~rainVolumeSynth = Synth(\rainVolume, [\in, ~rainBus, \amp, 0.0]);
-
 ~rain_env.playRoutine = {
     Routine({
-        var fadeTime = 180;  // seconds
-        var steps = 60;      // number of steps in fade
-        var waitTime = fadeTime / steps;  // time between steps
-        var startAmp = 0.0;
-        var endAmp = 1.0;
-
-        // Start patterns
         Pdef(\rains).play;
-		"Rain started".postln;
+        "Rain started".postln;
 
-        // Fade in the humVolume synth
-        steps.do { |i|
-            var ampVal = startAmp + ((endAmp - startAmp) * (i / steps));
-            ~rainVolumeSynth.set(\amp, ampVal);
-            waitTime.wait;
-        };
-
-        // Stop all after fade time
-		Pdef(\rains).stop;
-        ~rainVolumeSynth.free;
-
-        "Rain stopped.".postln;
-		60.wait; // fade time
     }).play;
 };
 
@@ -137,4 +95,3 @@
 ~rain_env.makePbinds.value;
 ~rain_env.playRoutine.value;
 
-// SynthDescLib.global.browse;
