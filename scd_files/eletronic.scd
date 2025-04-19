@@ -1,7 +1,7 @@
 
 // ELETRIC SIGNAL SOUND
 // Eletric beeping sound with reverb
-// Use values of the data as condition
+// Use values of temperature data as condition
 
 // Create environment
 ~eletric_env = ();
@@ -16,7 +16,7 @@
 ~eletric_env.init = { |self|
 
     // Get path to current document directory
-    ~eletric = PathName(Document.current.dir);
+    ~eletric = PathName(Document.current.dir +/+ ".." +/+ "data_exp");
     ~eletricData = CSVFileReader.read((~eletric +/+ "temperature_values.csv").fullPath, true, true);
     ~eletricData = ~eletricData.flatten.collect(_.asFloat);
 
@@ -72,9 +72,9 @@
                 \start, 0,
                 \dur, 0.2,
 				\pan, Pseg(Pwhite(-1.0, 1.0, inf), Pwhite(4.0, 12.0, inf)),
-				// if a value > 16, plays at amp 0.5
+				// values above 0.6 means summer months in the dataset
                 \amp, Pseq(tempValues.collect { |val|
-                    if (val > 16) { 0.5 } { Rest() }
+                    if (val > 0.6) { 0.5 } { Rest() }
                 }, inf)
             ),
             Pbind(
@@ -83,7 +83,7 @@
                 \dummy, Pseq(tempValues, inf),  // just to keep the same timing
 				// silent otherwise
                 \doSend, Pfunc { |ev|
-                    var ampValues = if (ev[\dummy] > 16) { 0.5 } { 0.0 };
+                    var ampValues = if (ev[\dummy] > 0.6) { 0.5 } { 0.0 };
 
 					//send the OSC message instantly with each event
                     AppClock.sched(0.0, {
@@ -111,6 +111,8 @@ Routine({
         300.wait;  // wait for 5 minutes
 
         Pdef(\eletrics).stop;
+	    10.wait;// some synths may have finished their envelope release
+	    s.freeAll; // free server
         "Eletric Signal stopped".postln;
 
 }).play;

@@ -1,6 +1,6 @@
-
 // HUMBLING SOUND
 // Low frequency signal reading from the temperature values
+// Use temperature data to modulate parameters of the sound
 
 // Create environment
 ~hum_env = ();
@@ -9,7 +9,7 @@
 ~hum_env.init = { |self|
 
     // Get path to current document directory
-    ~hum = PathName(Document.current.dir);
+    ~hum = PathName(Document.current.dir +/+ ".." +/+ "data_exp");
 
     // Read temperature values from CSV and convert to flat float array
     ~humData = CSVFileReader.read((~hum +/+ "temperature_values.csv").fullPath, true, true);
@@ -101,12 +101,15 @@
 Routine({
 
 	Pdef(\hum).play;
-        "Hum started".postln;
+        "Hum signal started".postln;
 
         300.wait;  // wait for 5 minutes
 
         Pdef(\hum).stop;
-        "Hum stopped".postln;
+
+	    10.wait;// some synths may have finished their envelope release
+	    s.freeAll; // free server
+        "Hum signal stopped".postln;
 
 }).play;
 
