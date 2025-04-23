@@ -3,24 +3,28 @@
 // Rain and wind sound with a shimmer
 // Use values of rain data as condition
 
-// Create environment for rain
+// Create environment
 ~hiss_env = ();
 
 // Load rain data from CSV
 ~hiss_env.init = { |self|
 
     ~hiss = PathName(Document.current.dir +/+ ".." +/+ "data_exp");
-    ~hissData = CSVFileReader.read((~hiss +/+ "rain_values.csv").fullPath, true, true);
+    ~hissData = CSVFileReader.read((~hiss +/+ "rain_values.csv").fullPath, true, true, startRow:1);
     ~hissData = ~hissData.flatten.collect(_.asFloat);
 
-    "Rain Environment initialized!".postln;
+	// print first 10 values
+    "Loaded rain values (first 10):".postln;
+    ~hissData[..10].postln;
+
+    "Hiss Environment initialized!".postln;
 };
 
 // Load the rain data first
 ~hiss_env.init.value;
 
 // Plot the rain data visually
-// ~hissData.plot;
+~hissData.plot;
 
 
 // SynthDef creation function
@@ -91,12 +95,14 @@
 Routine({
 
 	Pdef(\hiss).play;
-        "Hiss started".postln;
+        "Hiss signal started".postln;
 
         300.wait;  // wait for 5 minutes
 
         Pdef(\hiss).stop;
-        "Hiss stopped".postln;
+	    20.wait;
+	    s.freeAll; // free server
+        "Hiss signal stopped".postln;
 
 }).play;
 

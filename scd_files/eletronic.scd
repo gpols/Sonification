@@ -8,7 +8,7 @@
 
 
 // TouchDesigner connection IP and Port
-~td = NetAddr("10.100.56.216", 8000);
+~td = NetAddr("192.168.1.2", 8000);
 // test connection
 // ~td.sendMsg("/test", 1.0);
 
@@ -17,15 +17,19 @@
 
     // Get path to current document directory
     ~eletric = PathName(Document.current.dir +/+ ".." +/+ "data_exp");
-    ~eletricData = CSVFileReader.read((~eletric +/+ "temperature_values.csv").fullPath, true, true);
+    ~eletricData = CSVFileReader.read((~eletric +/+ "temperature_values.csv").fullPath, true, true, startRow:1);
     ~eletricData = ~eletricData.flatten.collect(_.asFloat);
+
+	// print first 10 values
+    "Loaded temperature values (first 10):".postln;
+    ~eletricData[..10].postln;
 
     "Eletric Environment initialized!".postln;
 };
 
 // Initiate environment data before everthing
 ~eletric_env.init.value;
-
+~eletricData.plot;
 // create sound synth inside a function
 ~eletric_env.func = {
 
@@ -111,13 +115,9 @@ Routine({
         300.wait;  // wait for 5 minutes
 
         Pdef(\eletrics).stop;
-	    10.wait;// some synths may have finished their envelope release
+	    20.wait;// some synths may have finished their envelope release
 	    s.freeAll; // free server
         "Eletric Signal stopped".postln;
 
 }).play;
-
-
-
-
 

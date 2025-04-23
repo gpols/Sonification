@@ -15,15 +15,23 @@
     ~fireData = CSVFileReader.read((~fire +/+ "wind_values.csv").fullPath, true, true);
     ~fireData = ~fireData.flatten.collect(_.asFloat);
 
+	 // print first 10 values
+    "Loaded wind values (first 10):".postln;
+    ~fireData[..10].postln;
+
     // Send data to buffer
     ~fireBuff = Buffer.sendCollection(s, ~fireData);
+
+	 // buffer confirmation
+    "Buffer initialized with number of frames:".postln;
+    ~fireBuff.numFrames.postln;
 
     "Fire Environment initialized!".postln;
 };
 
 // Initiate temperature data before everthing
 ~fire_env.init.value;
-// ~fireData.plot;
+~fireData.plot;
 
 ~fire_env.func = {
 
@@ -54,6 +62,9 @@
 
         // output set up to 12 speakers
 		// sig = PanAz.ar(12, sig, pan, level: amp);
+
+		// Stereo output
+        sig = Pan2.ar(sig, pan);
 
         // Send signal to output
         Out.ar(out, sig);
@@ -86,14 +97,17 @@
 Routine({
 
 	Pdef(\fires).play;
-        "Rain started".postln;
+        "Fire signal started".postln;
 
         300.wait;  // wait for 5 minutes
 
         Pdef(\fires).stop;
-        "Rain stopped".postln;
+	    20.wait;// some synths may have finished their envelope release
+	    s.freeAll; // free server
+        "Fire signal stopped".postln;
 
 }).play;
+
 
 
 
