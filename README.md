@@ -1,4 +1,3 @@
-```markdown
 # Future Sounds
 **Sonification of Climate Projection Data**  
 Author: Poliana Groth
@@ -65,5 +64,3 @@ uv pip install -r pyproject.toml
 1. Open SuperCollider and load the scripts from the `scd_files/` folder.
 2. Run individual sound scripts or the full composition script.
 ```
-
----
