@@ -2,8 +2,16 @@
 // Low frequency signal reading from the temperature values
 // Use temperature data to modulate parameters of the sound
 
+
 // Create environment
 ~hum_env = ();
+
+
+// TouchDesigner connection IP and Port
+~td = NetAddr("192.168.1.2", 8000);
+// test connection
+// ~td.sendMsg("/test", 1.0);
+
 
 // Load data first
 ~hum_env.init = { |self|
@@ -97,10 +105,17 @@
             \room, Pseq([0.8, 0.3, 1.0], inf),
             \pan, Pwhite(-0.7, 0.7, inf),
             \modDepth, Pseq([5.0, 3.0, 1.0], inf),
-            \amp, 0.5
+            \amp, 0.5,
+		    \sendhumSignal, Pfunc { |ev|
+                var value;
+                value = ev[\modDepth];
+                ~td.sendMsg("/humsignal", value); // send OSC message to touchdesigner
+                value;
+            }
         )
     );
 };
+
 
 // creates function and pbind
 ~hum_env.func.value;

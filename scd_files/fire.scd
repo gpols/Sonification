@@ -3,7 +3,6 @@
 // Use data to add variation to the base tone
 // Control the frequency of crackes
 
-
 // Create environment
 ~fire_env = ();
 

@@ -72,9 +72,6 @@
     Pdef(\hiss,
             Pbind(
                 \instrument, \hiss,
-                \rate, 1.0,
-                \loop, 1,
-                \start, 0,
                 \dur, 0.2,
 				\pan, Pseg(Pwhite(-1.0, 1.0, inf), Pwhite(4.0, 12.0, inf)),
 				// values above 0.7 are the highest periods of rain
