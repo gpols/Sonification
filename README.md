@@ -1,4 +1,3 @@
-```markdown
 # Future Sounds
 **Sonification of Climate Projection Data**  
 Author: Poliana Groth
@@ -27,9 +26,9 @@ cd Sonification
 ### 2. Install `uv`
 
 - **macOS**:
-  ```bash
-  brew install astral-sh/uv/uv
-  ```
+```bash
+brew install astral-sh/uv/uv
+```
 
 - **Windows**:
   - Download the latest `uv.exe` from: https://github.com/astral-sh/uv/releases/latest
@@ -45,14 +44,14 @@ uv venv
 ### 4. Activate the Environment
 
 - **macOS/Linux**:
-  ```bash
-  source .venv/bin/activate
-  ```
+```bash
+source .venv/bin/activate
+```
 
 - **Windows (PowerShell)**:
-  ```bash
-  .venv\Scripts\Activate.ps1
-  ```
+```bash
+.venv\Scripts\Activate.ps1
+```
 
 ### 5. Install Dependencies
 
@@ -65,5 +64,3 @@ uv pip install -r pyproject.toml
 1. Open SuperCollider and load the scripts from the `scd_files/` folder.
 2. Run individual sound scripts or the full composition script.
 ```
-
----
